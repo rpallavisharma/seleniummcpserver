@@ -17,12 +17,46 @@ class SeleniumBrowserTests(unittest.TestCase):
     @patch("selenium_mcp_server.server.webdriver.Chrome")
     def test_navigate_starts_driver_lazily(self, chrome):
         chrome.return_value = self.driver
+        self.browser = SeleniumBrowser("chrome")
 
         result = self.browser.navigate("https://example.com")
 
         self.assertEqual(result, "Navigated to https://example.com/")
         chrome.assert_called_once()
         self.driver.get.assert_called_once_with("https://example.com")
+
+    @patch("selenium_mcp_server.server.webdriver.Safari")
+    def test_safari_starts_without_headless_options(self, safari):
+        safari.return_value = self.driver
+        browser = SeleniumBrowser("safari")
+
+        browser.title()
+
+        safari.assert_called_once()
+
+    @patch("selenium_mcp_server.server.webdriver.Edge")
+    def test_edge_uses_headless_option_by_default(self, edge):
+        edge.return_value = self.driver
+        browser = SeleniumBrowser("edge")
+
+        browser.title()
+
+        options = edge.call_args.kwargs["options"]
+        self.assertIn("--headless=new", options.arguments)
+
+    @patch("selenium_mcp_server.server.webdriver.Firefox")
+    def test_firefox_uses_headless_option_by_default(self, firefox):
+        firefox.return_value = self.driver
+        browser = SeleniumBrowser("firefox")
+
+        browser.title()
+
+        options = firefox.call_args.kwargs["options"]
+        self.assertIn("-headless", options.arguments)
+
+    def test_rejects_unsupported_browser(self):
+        with self.assertRaisesRegex(ValueError, "Unsupported browser"):
+            SeleniumBrowser("internet_explorer")
 
     @patch("selenium_mcp_server.server.webdriver.Chrome")
     def test_page_text_uses_body_element(self, chrome):

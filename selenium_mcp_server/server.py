@@ -5,7 +5,10 @@ from typing import Literal
 from mcp.server.fastmcp import FastMCP, Image
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.options import Options as ChromeOptions
+from selenium.webdriver.edge.options import Options as EdgeOptions
+from selenium.webdriver.firefox.options import Options as FirefoxOptions
+from selenium.webdriver.safari.options import Options as SafariOptions
 
 
 mcp = FastMCP("selenium")
@@ -32,19 +35,42 @@ _LOCATORS = {
     "partial_link_text": By.PARTIAL_LINK_TEXT,
 }
 
+_BROWSERS = {"chrome", "firefox", "edge", "safari"}
+
 
 class SeleniumBrowser:
-    def __init__(self) -> None:
+    def __init__(self, browser_name: str | None = None) -> None:
+        self._browser_name = (
+            browser_name or os.getenv("SELENIUM_BROWSER", "chrome")
+        ).strip().lower()
+        if self._browser_name not in _BROWSERS:
+            supported = ", ".join(sorted(_BROWSERS))
+            raise ValueError(
+                f"Unsupported browser: {self._browser_name}. Choose from: {supported}"
+            )
         self._driver = None
         self._lock = RLock()
 
     def _get_driver(self):
         if self._driver is None:
-            options = Options()
             headless = os.getenv("SELENIUM_HEADLESS", "true").lower()
-            if headless not in {"0", "false", "no", "off"}:
-                options.add_argument("--headless=new")
-            self._driver = webdriver.Chrome(options=options)
+            if self._browser_name == "chrome":
+                options = ChromeOptions()
+                if headless not in {"0", "false", "no", "off"}:
+                    options.add_argument("--headless=new")
+                self._driver = webdriver.Chrome(options=options)
+            elif self._browser_name == "firefox":
+                options = FirefoxOptions()
+                if headless not in {"0", "false", "no", "off"}:
+                    options.add_argument("-headless")
+                self._driver = webdriver.Firefox(options=options)
+            elif self._browser_name == "edge":
+                options = EdgeOptions()
+                if headless not in {"0", "false", "no", "off"}:
+                    options.add_argument("--headless=new")
+                self._driver = webdriver.Edge(options=options)
+            else:
+                self._driver = webdriver.Safari(options=SafariOptions())
         return self._driver
 
     def navigate(self, url: str) -> str:
