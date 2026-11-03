@@ -1,4 +1,5 @@
 import os
+from dataclasses import asdict, is_dataclass
 from threading import RLock
 from typing import Literal
 
@@ -12,6 +13,7 @@ from selenium.webdriver.firefox.options import Options as FirefoxOptions
 from selenium.webdriver.safari.options import Options as SafariOptions
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.relative_locator import locate_with
 from selenium.webdriver.support.select import Select
 from selenium.webdriver.support.ui import WebDriverWait
 
@@ -41,6 +43,17 @@ _LOCATORS = {
 }
 
 _BROWSERS = {"chrome", "firefox", "edge", "safari"}
+_RELATIVE_RELATIONS = {
+    "above": "above",
+    "below": "below",
+    "left": "to_left_of",
+    "right": "to_right_of",
+    "near": "near",
+    "straight_above": "straight_above",
+    "straight_below": "straight_below",
+    "straight_left": "straight_left_of",
+    "straight_right": "straight_right_of",
+}
 _KEYS = {
     name: getattr(Keys, name)
     for name in (
@@ -81,21 +94,26 @@ class SeleniumBrowser:
             headless = os.getenv("SELENIUM_HEADLESS", "true").lower()
             if self._browser_name == "chrome":
                 options = ChromeOptions()
+                options.enable_bidi = True
                 if headless not in {"0", "false", "no", "off"}:
                     options.add_argument("--headless=new")
                 self._driver = webdriver.Chrome(options=options)
             elif self._browser_name == "firefox":
                 options = FirefoxOptions()
+                options.enable_bidi = True
                 if headless not in {"0", "false", "no", "off"}:
                     options.add_argument("-headless")
                 self._driver = webdriver.Firefox(options=options)
             elif self._browser_name == "edge":
                 options = EdgeOptions()
+                options.enable_bidi = True
                 if headless not in {"0", "false", "no", "off"}:
                     options.add_argument("--headless=new")
                 self._driver = webdriver.Edge(options=options)
             else:
-                self._driver = webdriver.Safari(options=SafariOptions())
+                options = SafariOptions()
+                options.enable_bidi = True
+                self._driver = webdriver.Safari(options=options)
         return self._driver
 
     def navigate(self, url: str) -> str:
@@ -160,6 +178,95 @@ class SeleniumBrowser:
         if strategy not in _LOCATORS:
             raise ValueError(f"Unsupported locator strategy: {strategy}")
         return strategy
+
+    @staticmethod
+    def _element_summary(element) -> dict:
+        return {
+            "tag": element.tag_name,
+            "text": element.text,
+            "displayed": element.is_displayed(),
+            "enabled": element.is_enabled(),
+            "selected": element.is_selected(),
+        }
+
+    def shadow_element(
+        self,
+        host_strategy: str,
+        host_selector: str,
+        strategy: str,
+        selector: str,
+    ) -> dict:
+        with self._lock:
+            host = self._find(host_strategy, host_selector)
+            element = host.shadow_root.find_element(
+                _LOCATORS[self._validate_locator(strategy)], selector
+            )
+            return self._element_summary(element)
+
+    def click_shadow_element(
+        self, host_strategy: str, host_selector: str, strategy: str, selector: str
+    ) -> str:
+        with self._lock:
+            host = self._find(host_strategy, host_selector)
+            element = host.shadow_root.find_element(
+                _LOCATORS[self._validate_locator(strategy)], selector
+            )
+            element.click()
+            return "Clicked element in shadow DOM"
+
+    def type_shadow_text(
+        self,
+        host_strategy: str,
+        host_selector: str,
+        strategy: str,
+        selector: str,
+        text: str,
+        clear: bool = True,
+    ) -> str:
+        with self._lock:
+            host = self._find(host_strategy, host_selector)
+            element = host.shadow_root.find_element(
+                _LOCATORS[self._validate_locator(strategy)], selector
+            )
+            if clear:
+                element.clear()
+            element.send_keys(text)
+            return "Entered text into element in shadow DOM"
+
+    def find_relative_elements(
+        self,
+        strategy: str,
+        selector: str,
+        relation: str,
+        anchor_strategy: str,
+        anchor_selector: str,
+        near_distance: int = 50,
+        limit: int = 50,
+    ) -> list[dict]:
+        if relation not in _RELATIVE_RELATIONS:
+            raise ValueError(
+                f"Unsupported relative relation: {relation}. "
+                f"Choose from: {', '.join(_RELATIVE_RELATIONS)}"
+            )
+        if not 1 <= limit <= 200:
+            raise ValueError("limit must be between 1 and 200")
+        if relation == "near" and near_distance <= 0:
+            raise ValueError("near_distance must be positive")
+        with self._lock:
+            driver = self._get_driver()
+            anchor = self._find(anchor_strategy, anchor_selector)
+            relative = locate_with(
+                _LOCATORS[self._validate_locator(strategy)], selector
+            )
+            relation_method = getattr(relative, _RELATIVE_RELATIONS[relation])
+            if relation == "near":
+                relation_method(anchor, near_distance)
+            else:
+                relation_method(anchor)
+            return [
+                self._element_summary(element)
+                for element in driver.find_elements(relative)[:limit]
+            ]
 
     def element_attribute(self, strategy: str, selector: str, attribute: str) -> str | None:
         with self._lock:
@@ -328,6 +435,25 @@ class SeleniumBrowser:
         with self._lock:
             return self._get_driver().execute_script(script, *(arguments or []))
 
+    def execute_async_script(
+        self, script: str, arguments: list | None = None, timeout: float = 10
+    ):
+        if not 0 < timeout <= 120:
+            raise ValueError("timeout must be greater than 0 and at most 120 seconds")
+        with self._lock:
+            driver = self._get_driver()
+            driver.set_script_timeout(timeout)
+            return driver.execute_async_script(script, *(arguments or []))
+
+    def active_element(self) -> dict:
+        with self._lock:
+            return self._element_summary(self._get_driver().switch_to.active_element)
+
+    def parent_frame(self) -> str:
+        with self._lock:
+            self._get_driver().switch_to.parent_frame()
+            return "Switched to parent frame"
+
     def window_handles(self) -> dict:
         with self._lock:
             driver = self._get_driver()
@@ -411,6 +537,14 @@ class SeleniumBrowser:
             self._get_driver().set_window_size(width, height)
             return f"Set browser window size to {width}x{height}"
 
+    def window_position(self) -> dict:
+        with self._lock:
+            return self._get_driver().get_window_position()
+
+    def set_window_position(self, x: int, y: int) -> dict:
+        with self._lock:
+            return self._get_driver().set_window_position(x, y)
+
     def maximize_window(self) -> str:
         with self._lock:
             self._get_driver().maximize_window()
@@ -433,6 +567,52 @@ class SeleniumBrowser:
             else:
                 driver.set_script_timeout(seconds)
             return f"Set {timeout_type} timeout to {seconds} seconds"
+
+    def _bidi_driver(self):
+        driver = self._get_driver()
+        if not driver.capabilities.get("webSocketUrl"):
+            raise RuntimeError(
+                f"WebDriver BiDi is unavailable for {self._browser_name}; "
+                "the selected browser and driver must support BiDi."
+            )
+        return driver
+
+    def bidi_status(self) -> dict:
+        with self._lock:
+            driver = self._get_driver()
+            return {
+                "browser": driver.capabilities.get("browserName", self._browser_name),
+                "available": bool(driver.capabilities.get("webSocketUrl")),
+            }
+
+    def bidi_context_tree(self, max_depth: int = 5) -> list[dict]:
+        if not 0 <= max_depth <= 20:
+            raise ValueError("max_depth must be between 0 and 20")
+        with self._lock:
+            contexts = self._bidi_driver().browsing_context.get_tree(
+                max_depth=max_depth
+            )
+            return [asdict(item) if is_dataclass(item) else item for item in contexts]
+
+    def bidi_user_contexts(self) -> list[str]:
+        with self._lock:
+            return self._bidi_driver().browser.get_user_contexts()
+
+    def bidi_create_user_context(self) -> str:
+        with self._lock:
+            return self._bidi_driver().browser.create_user_context()
+
+    def bidi_remove_user_context(self, user_context: str) -> str:
+        with self._lock:
+            self._bidi_driver().browser.remove_user_context(user_context)
+            return f"Removed BiDi user context {user_context}"
+
+    def bidi_navigate(self, context: str, url: str) -> dict:
+        with self._lock:
+            result = self._bidi_driver().browsing_context.navigate(
+                context=context, url=url, wait="complete"
+            )
+            return result if isinstance(result, dict) else {"result": str(result)}
 
     def screenshot(self) -> Image:
         with self._lock:
@@ -528,6 +708,75 @@ def take_element_screenshot(strategy: LocatorStrategy, selector: str) -> Image:
 def get_element_state(strategy: LocatorStrategy, selector: str) -> dict:
     """Return whether an element is displayed, enabled, and selected."""
     return browser.element_state(strategy, selector)
+
+
+@mcp.tool()
+def find_shadow_element(
+    host_strategy: LocatorStrategy,
+    host_selector: str,
+    strategy: LocatorStrategy,
+    selector: str,
+) -> dict:
+    """Find an element inside the shadow root of a matching host."""
+    return browser.shadow_element(host_strategy, host_selector, strategy, selector)
+
+
+@mcp.tool()
+def click_shadow_element(
+    host_strategy: LocatorStrategy,
+    host_selector: str,
+    strategy: LocatorStrategy,
+    selector: str,
+) -> str:
+    """Click an element inside the shadow root of a matching host."""
+    return browser.click_shadow_element(host_strategy, host_selector, strategy, selector)
+
+
+@mcp.tool()
+def type_shadow_text(
+    host_strategy: LocatorStrategy,
+    host_selector: str,
+    strategy: LocatorStrategy,
+    selector: str,
+    text: str,
+    clear: bool = True,
+) -> str:
+    """Type into an element inside the shadow root of a matching host."""
+    return browser.type_shadow_text(
+        host_strategy, host_selector, strategy, selector, text, clear
+    )
+
+
+@mcp.tool()
+def find_relative_elements(
+    strategy: LocatorStrategy,
+    selector: str,
+    relation: Literal[
+        "above",
+        "below",
+        "left",
+        "right",
+        "near",
+        "straight_above",
+        "straight_below",
+        "straight_left",
+        "straight_right",
+    ],
+    anchor_strategy: LocatorStrategy,
+    anchor_selector: str,
+    near_distance: int = 50,
+    limit: int = 50,
+) -> list[dict]:
+    """Find elements positioned relative to an anchor element."""
+    return browser.find_relative_elements(
+        strategy,
+        selector,
+        relation,
+        anchor_strategy,
+        anchor_selector,
+        near_distance,
+        limit,
+    )
 
 
 @mcp.tool()
@@ -640,6 +889,26 @@ def execute_javascript(script: str, arguments: list | None = None):
 
 
 @mcp.tool()
+def execute_async_javascript(
+    script: str, arguments: list | None = None, timeout: float = 10
+):
+    """Execute async JavaScript; call Selenium's final callback argument with the result."""
+    return browser.execute_async_script(script, arguments, timeout)
+
+
+@mcp.tool()
+def get_active_element() -> dict:
+    """Return basic information about the currently focused element."""
+    return browser.active_element()
+
+
+@mcp.tool()
+def switch_to_parent_frame() -> str:
+    """Switch focus from the current frame to its parent frame."""
+    return browser.parent_frame()
+
+
+@mcp.tool()
 def get_windows() -> dict:
     """Return the current window handle and all open window handles."""
     return browser.window_handles()
@@ -712,6 +981,18 @@ def set_window_size(width: int, height: int) -> str:
 
 
 @mcp.tool()
+def get_window_position() -> dict:
+    """Return the browser window's x and y position."""
+    return browser.window_position()
+
+
+@mcp.tool()
+def set_window_position(x: int, y: int) -> dict:
+    """Move the browser window to the given screen coordinates."""
+    return browser.set_window_position(x, y)
+
+
+@mcp.tool()
 def maximize_window() -> str:
     """Maximize the browser window."""
     return browser.maximize_window()
@@ -729,6 +1010,42 @@ def set_timeout(
 ) -> str:
     """Set an implicit, page-load, or script timeout (maximum 120 seconds)."""
     return browser.set_timeout(timeout_type, seconds)
+
+
+@mcp.tool()
+def get_bidi_status() -> dict:
+    """Report whether the active WebDriver session exposes a BiDi WebSocket."""
+    return browser.bidi_status()
+
+
+@mcp.tool()
+def get_bidi_context_tree(max_depth: int = 5) -> list[dict]:
+    """Return the BiDi browsing context tree, when supported by the browser."""
+    return browser.bidi_context_tree(max_depth)
+
+
+@mcp.tool()
+def get_bidi_user_contexts() -> list[str]:
+    """List browser user contexts through WebDriver BiDi."""
+    return browser.bidi_user_contexts()
+
+
+@mcp.tool()
+def create_bidi_user_context() -> str:
+    """Create an isolated browser user context through WebDriver BiDi."""
+    return browser.bidi_create_user_context()
+
+
+@mcp.tool()
+def remove_bidi_user_context(user_context: str) -> str:
+    """Remove an isolated browser user context through WebDriver BiDi."""
+    return browser.bidi_remove_user_context(user_context)
+
+
+@mcp.tool()
+def bidi_navigate(context: str, url: str) -> dict:
+    """Navigate a BiDi browsing context to a URL."""
+    return browser.bidi_navigate(context, url)
 
 
 @mcp.tool()

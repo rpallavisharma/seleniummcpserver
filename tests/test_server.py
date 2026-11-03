@@ -23,6 +23,7 @@ class SeleniumBrowserTests(unittest.TestCase):
 
         self.assertEqual(result, "Navigated to https://example.com/")
         chrome.assert_called_once()
+        self.assertTrue(chrome.call_args.kwargs["options"].enable_bidi)
         self.driver.get.assert_called_once_with("https://example.com")
 
     @patch("selenium_mcp_server.server.webdriver.Safari")
@@ -184,6 +185,137 @@ class SeleniumBrowserTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "between 0 and 120"):
             self.browser.set_timeout("script", 121)
+
+    @patch("selenium_mcp_server.server.webdriver.Chrome")
+    def test_find_shadow_element_uses_host_shadow_root(self, chrome):
+        chrome.return_value = self.driver
+        shadow_element = Mock(tag_name="button", text="Continue")
+        shadow_element.is_displayed.return_value = True
+        shadow_element.is_enabled.return_value = True
+        shadow_element.is_selected.return_value = False
+        self.driver.find_element.return_value.shadow_root.find_element.return_value = (
+            shadow_element
+        )
+
+        result = self.browser.shadow_element("id", "host", "css", "button")
+
+        self.driver.find_element.return_value.shadow_root.find_element.assert_called_once_with(
+            By.CSS_SELECTOR, "button"
+        )
+        self.assertEqual(result["tag"], "button")
+        self.assertEqual(result["text"], "Continue")
+
+    @patch("selenium_mcp_server.server.webdriver.Chrome")
+    def test_type_shadow_text_clears_and_types(self, chrome):
+        chrome.return_value = self.driver
+        shadow_element = self.driver.find_element.return_value.shadow_root.find_element.return_value
+
+        result = self.browser.type_shadow_text("css", "my-widget", "id", "query", "term")
+
+        self.assertIn("shadow DOM", result)
+        shadow_element.clear.assert_called_once()
+        shadow_element.send_keys.assert_called_once_with("term")
+
+    @patch("selenium_mcp_server.server.webdriver.Chrome")
+    def test_relative_locator_queries_near_anchor(self, chrome):
+        chrome.return_value = self.driver
+        candidate = Mock(tag_name="button", text="Save")
+        candidate.is_displayed.return_value = True
+        candidate.is_enabled.return_value = True
+        candidate.is_selected.return_value = False
+        self.driver.find_elements.return_value = [candidate]
+
+        result = self.browser.find_relative_elements(
+            "tag", "button", "near", "id", "reference", near_distance=25
+        )
+
+        relative = self.driver.find_elements.call_args.args[0]
+        self.assertEqual(relative.filters[0]["kind"], "near")
+        self.assertEqual(relative.filters[0]["args"][1], 25)
+        self.assertEqual(result[0]["text"], "Save")
+
+    @patch("selenium_mcp_server.server.webdriver.Chrome")
+    def test_execute_async_script_sets_timeout_and_passes_arguments(self, chrome):
+        chrome.return_value = self.driver
+        self.driver.execute_async_script.return_value = "done"
+
+        result = self.browser.execute_async_script(
+            "arguments[arguments.length - 1]('done')", ["value"], timeout=7
+        )
+
+        self.assertEqual(result, "done")
+        self.driver.set_script_timeout.assert_called_once_with(7)
+        self.driver.execute_async_script.assert_called_once_with(
+            "arguments[arguments.length - 1]('done')", "value"
+        )
+
+    @patch("selenium_mcp_server.server.webdriver.Chrome")
+    def test_active_element_and_parent_frame(self, chrome):
+        chrome.return_value = self.driver
+        active = self.driver.switch_to.active_element
+        active.tag_name = "input"
+        active.text = ""
+        active.is_displayed.return_value = True
+        active.is_enabled.return_value = True
+        active.is_selected.return_value = False
+
+        self.assertEqual(self.browser.active_element()["tag"], "input")
+        self.assertEqual(self.browser.parent_frame(), "Switched to parent frame")
+        self.driver.switch_to.parent_frame.assert_called_once()
+
+    @patch("selenium_mcp_server.server.webdriver.Chrome")
+    def test_window_position_get_and_set(self, chrome):
+        chrome.return_value = self.driver
+        self.driver.get_window_position.return_value = {"x": 1, "y": 2}
+        self.driver.set_window_position.return_value = {"x": 30, "y": 40}
+
+        self.assertEqual(self.browser.window_position(), {"x": 1, "y": 2})
+        self.assertEqual(
+            self.browser.set_window_position(30, 40), {"x": 30, "y": 40}
+        )
+        self.driver.set_window_position.assert_called_once_with(30, 40)
+
+    @patch("selenium_mcp_server.server.webdriver.Chrome")
+    def test_bidi_status_does_not_expose_websocket_url(self, chrome):
+        chrome.return_value = self.driver
+        self.driver.capabilities = {
+            "browserName": "chrome",
+            "webSocketUrl": "ws://localhost/private-session",
+        }
+
+        result = self.browser.bidi_status()
+
+        self.assertEqual(result, {"browser": "chrome", "available": True})
+        self.assertNotIn("webSocketUrl", result)
+
+    @patch("selenium_mcp_server.server.webdriver.Chrome")
+    def test_bidi_commands_require_bidi_capability(self, chrome):
+        chrome.return_value = self.driver
+        self.driver.capabilities = {"browserName": "chrome"}
+
+        with self.assertRaisesRegex(RuntimeError, "BiDi is unavailable"):
+            self.browser.bidi_user_contexts()
+
+    @patch("selenium_mcp_server.server.webdriver.Chrome")
+    def test_bidi_context_operations(self, chrome):
+        chrome.return_value = self.driver
+        self.driver.capabilities = {"browserName": "chrome", "webSocketUrl": "ws://"}
+        self.driver.browser.get_user_contexts.return_value = ["default", "isolated"]
+        self.driver.browser.create_user_context.return_value = "isolated"
+        self.driver.browsing_context.navigate.return_value = {"navigation": "done"}
+
+        self.assertEqual(self.browser.bidi_user_contexts(), ["default", "isolated"])
+        self.assertEqual(self.browser.bidi_create_user_context(), "isolated")
+        self.assertEqual(
+            self.browser.bidi_navigate("context-1", "https://example.com"),
+            {"navigation": "done"},
+        )
+        self.driver.browser.remove_user_context.assert_not_called()
+        self.assertEqual(
+            self.browser.bidi_remove_user_context("isolated"),
+            "Removed BiDi user context isolated",
+        )
+        self.driver.browser.remove_user_context.assert_called_once_with("isolated")
 
     @patch("selenium_mcp_server.server.webdriver.Chrome")
     def test_close_quits_and_resets_driver(self, chrome):

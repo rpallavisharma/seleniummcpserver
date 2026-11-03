@@ -46,6 +46,12 @@ Elements and interactions:
 
 - `find_elements(strategy, selector, limit=50)`: list matching elements and
   their tag, text, and displayed/enabled/selected state (limit 1–200).
+- `find_shadow_element(host_strategy, host_selector, strategy, selector)`,
+  `click_shadow_element(...)`, and `type_shadow_text(...)` locate or interact
+  inside a host element's shadow root.
+- `find_relative_elements(strategy, selector, relation, anchor_strategy,
+  anchor_selector, near_distance=50, limit=50)`: locate elements above, below,
+  left/right of, or near an anchor, including straight-line variants.
 - `get_element_attribute(strategy, selector, attribute)` and
   `get_element_state(strategy, selector)`.
 - `get_element_property(strategy, selector, name)`,
@@ -66,6 +72,10 @@ Elements and interactions:
 - `wait_for_element(strategy, selector, timeout=10, visible=true)`: wait for
   presence or visibility; timeout is limited to 120 seconds.
 - `wait_for_title(title, timeout=10)` and `wait_for_url(url_fragment, timeout=10)`.
+- `execute_async_javascript(script, arguments, timeout=10)`: execute an async
+  script that calls Selenium's final callback argument; timeout is capped at
+  120 seconds.
+- `get_active_element()` and `switch_to_parent_frame()`.
 
 Browser context and controls:
 
@@ -76,11 +86,17 @@ Browser context and controls:
   alerts and enter text in prompts.
 - `get_cookies()`, `add_cookie(cookie)`, and `delete_cookies(name)`.
 - `set_window_size(width, height)`, `maximize_window()`, and
-  `fullscreen_window()`.
+  `fullscreen_window()`, plus `get_window_position()` and
+  `set_window_position(x, y)`.
 - `set_timeout(timeout_type, seconds)`: configure `implicit`, `page_load`, or
   `script` timeout (0–120 seconds).
 - `execute_javascript(script, arguments)`: execute JavaScript in the current
   page; arguments must be JSON-serializable.
+- `get_bidi_status()`, `get_bidi_context_tree(max_depth=5)`,
+  `bidi_navigate(context, url)`, `get_bidi_user_contexts()`,
+  `create_bidi_user_context()`, and `remove_bidi_user_context(user_context)`.
+  WebDriver BiDi is requested at session creation; the selected browser and
+  driver must support the specific BiDi command.
 - `close_browser()`: end the current browser session.
 
 Supported locator strategies are `id`, `name`, `css`, `xpath`, `tag`, `class`,
