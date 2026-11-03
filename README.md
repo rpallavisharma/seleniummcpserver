@@ -3,7 +3,7 @@
 A Model Context Protocol (MCP) server that lets an MCP client control Chrome,
 Firefox, Edge, or Safari through Selenium.
 
-Browse the [documentation website](docs/index.html) for a more visual guide.
+Browse the [documentation website](https://rpallavisharma.github.io/seleniummcpserver/docs/index.html) for a more visual guide.
 
 ## Requirements
 
