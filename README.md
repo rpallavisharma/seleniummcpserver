@@ -5,6 +5,9 @@ Firefox, Edge, or Safari through Selenium.
 
 Browse the [documentation website](https://rpallavisharma.github.io/seleniummcpserver/docs/index.html) for a more visual guide.
 
+For a step-by-step Claude Desktop setup, see the
+[Claude Desktop tutorial](docs/claude-desktop.md).
+
 ## Requirements
 
 - Python 3.10 or later
