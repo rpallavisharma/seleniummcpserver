@@ -1,2 +1,2 @@
 mcp==1.30.0
-selenium==4.52.0
+selenium==4.53.0
