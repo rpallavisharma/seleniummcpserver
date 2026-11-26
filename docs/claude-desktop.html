@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Step-by-step tutorial for using Selenium MCP Server with Claude Desktop on macOS.">
+    <title>Claude Desktop setup — Selenium MCP Server</title>
+    <style>
+      :root {
+        --ink: #17212b;
+        --muted: #64717e;
+        --line: #e2e7eb;
+        --paper: #fff;
+        --canvas: #f6f7f9;
+        --blue: #1769aa;
+        --blue-soft: #eaf3fb;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; color: var(--ink); background: var(--canvas); line-height: 1.65; }
+      a { color: var(--blue); }
+      .topbar {
+        position: sticky; top: 0; display: flex; align-items: center; justify-content: space-between;
+        min-height: 64px; padding: 0 max(24px, calc((100vw - 840px) / 2));
+        border-bottom: 1px solid var(--line); background: rgb(255 255 255 / 94%);
+      }
+      .brand { color: var(--ink); font-weight: 750; text-decoration: none; }
+      .top-link { font-size: 14px; font-weight: 650; text-decoration: none; }
+      main { width: min(840px, 100%); margin: 0 auto; padding: 48px 24px 96px; }
+      h1 { margin: 0 0 12px; font-size: clamp(32px, 5vw, 46px); line-height: 1.15; letter-spacing: -0.04em; }
+      h2 { margin: 48px 0 12px; font-size: 26px; letter-spacing: -0.03em; }
+      h3 { margin: 28px 0 8px; font-size: 17px; }
+      p, li { color: #3d4a57; }
+      .intro { color: #526170; font-size: 18px; }
+      pre {
+        overflow-x: auto; margin: 16px 0; padding: 20px; border-radius: 10px;
+        color: #e9f0f7; background: var(--ink); font: 13px/1.7 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      code { padding: 2px 5px; border-radius: 4px; color: #234f72; background: #eaf0f5; font: 0.9em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      pre code { padding: 0; color: inherit; background: transparent; }
+      blockquote { margin: 16px 0; padding: 12px 16px; border-left: 3px solid #9bbbd3; background: var(--blue-soft); color: #35566f; }
+      .callout { margin-top: 40px; padding: 18px 20px; border: 1px solid #d5e6f4; border-radius: 10px; background: var(--blue-soft); }
+      .callout p { margin: 4px 0 0; color: #35566f; }
+      footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="index.html">Selenium MCP Server</a>
+      <a class="top-link" href="index.html">← Documentation</a>
+    </header>
+
+    <main>
+      <h1>Use Selenium MCP Server with Claude Desktop on macOS</h1>
+      <p class="intro">
+        This guide connects Claude Desktop to the Selenium MCP server. After setup, you can ask
+        Claude to browse and inspect pages using plain-language prompts.
+      </p>
+
+      <h2>What you need</h2>
+      <ul>
+        <li>Claude Desktop installed and running on macOS</li>
+        <li>Python 3.10 or later</li>
+        <li>Chrome, Firefox, Edge, or Safari installed</li>
+        <li>An internet connection the first time Selenium Manager sets up a browser driver</li>
+      </ul>
+      <p>
+        The server controls a real browser on your Mac. Chrome is selected by default, and the
+        browser runs headlessly unless you turn headless mode off.
+      </p>
+
+      <h2>1. Download the project</h2>
+      <pre><code>git clone https://github.com/rpallavisharma/seleniummcpserver.git
+cd seleniummcpserver</code></pre>
+      <p>
+        If you already downloaded the repository, use <code>cd</code> to move into the folder that
+        contains <code>requirements.txt</code> and the <code>selenium_mcp_server</code> directory.
+      </p>
+
+      <h2>2. Create an environment and install dependencies</h2>
+      <p>Check that Python is new enough:</p>
+      <pre><code>python3 --version</code></pre>
+      <p>If the version is below 3.10, install a newer Python first. Then, from the repository directory:</p>
+      <pre><code>python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt</code></pre>
+      <p>Keep the virtual environment in the repository. Claude will use its Python executable in the next step.</p>
+
+      <h2>3. Copy the full repository path</h2>
+      <pre><code>pwd</code></pre>
+      <p>
+        Copy the printed path. It should be the directory containing both <code>requirements.txt</code>
+        and <code>selenium_mcp_server/</code>, for example <code>/Users/yourname/Documents/seleniummcpserver</code>.
+      </p>
+
+      <h2>4. Configure Claude Desktop</h2>
+      <p>
+        In Claude Desktop, open <strong>Settings → Developer → Edit Config</strong>. This opens
+        <code>claude_desktop_config.json</code>. If the file already contains settings, preserve them and
+        add the <code>selenium</code> entry inside the existing <code>mcpServers</code> object.
+      </p>
+      <p>
+        Replace both occurrences of <code>/Users/yourname/Documents/seleniummcpserver</code> with the exact path you copied:
+      </p>
+      <pre><code>{
+  "mcpServers": {
+    "selenium": {
+      "command": "/Users/yourname/Documents/seleniummcpserver/.venv/bin/python",
+      "args": ["-m", "selenium_mcp_server"],
+      "env": {
+        "PYTHONPATH": "/Users/yourname/Documents/seleniummcpserver",
+        "SELENIUM_BROWSER": "chrome",
+        "SELENIUM_HEADLESS": "false"
+      }
+    }
+  }
+}</code></pre>
+      <p>
+        <code>PYTHONPATH</code> tells Python where to find the project package. Both paths must point to the
+        repository root, not the <code>selenium_mcp_server</code> subfolder. Use valid JSON: double quotes and
+        commas between entries.
+      </p>
+      <p>
+        To keep the browser hidden, set <code>SELENIUM_HEADLESS</code> to <code>"true"</code> or remove it. To use
+        another browser, set <code>SELENIUM_BROWSER</code> to <code>"firefox"</code>, <code>"edge"</code>, or
+        <code>"safari"</code>. Safari requires enabling automation in its Develop menu.
+      </p>
+
+      <h2>5. Restart and check the connection</h2>
+      <p>
+        Save the config, fully quit Claude Desktop with <strong>Cmd+Q</strong>, then reopen it. Go to
+        <strong>Settings → Developer</strong> and check that the Selenium server is running. If Claude asks
+        permission to use a tool, review the request and allow it when appropriate.
+      </p>
+
+      <h2>6. Try a first browser task</h2>
+      <blockquote>Open https://example.com and tell me the page title and the main text.</blockquote>
+      <p>
+        Claude should navigate to the page and inspect it. With <code>"SELENIUM_HEADLESS": "false"</code> you
+        should also see the browser window.
+      </p>
+
+      <h2>7. Try more tasks</h2>
+      <ul>
+        <li>“Open https://example.com and list its links.”</li>
+        <li>“Take a screenshot of the current page.”</li>
+        <li>“Find the heading on this page and tell me its text.”</li>
+        <li>“Wait for the element with CSS selector <code>#results</code> to appear, then read its text.”</li>
+        <li>“Go back one page and tell me the current URL.”</li>
+      </ul>
+
+      <h2>Troubleshooting</h2>
+      <h3><code>No module named selenium_mcp_server</code></h3>
+      <p>
+        Check that <code>PYTHONPATH</code> is the exact repository path from <code>pwd</code> and contains the
+        <code>selenium_mcp_server</code> directory, and that <code>command</code> points to
+        <code>.venv/bin/python</code> in that same repository. Quit and reopen Claude Desktop after editing the config.
+      </p>
+      <pre><code>/full/path/to/seleniummcpserver/.venv/bin/python -c "import selenium_mcp_server; print('Package found')"</code></pre>
+
+      <h3><code>Could not find a version</code> while installing</h3>
+      <p>
+        Check <code>python3 --version</code>; Python 3.10 or later is required. If it is recent enough, check that
+        your network, VPN, or proxy allows access to PyPI, then retry.
+      </p>
+
+      <h3>Claude reports that the server disconnected</h3>
+      <p>
+        Open <strong>Settings → Developer</strong> and inspect the server logs. Check for invalid JSON, incorrect
+        paths, and dependency errors, and make sure you restarted Claude Desktop after changing its config.
+      </p>
+
+      <h3>The browser does not open</h3>
+      <p>
+        Confirm the selected browser is installed. On first use, Selenium Manager may need internet access to obtain a
+        driver. Safari requires macOS and Safari automation enabled in the Develop menu.
+      </p>
+
+      <div class="callout">
+        <strong>Use browser access carefully</strong>
+        <p>
+          The server can click, type into forms, read page content, and execute JavaScript. Start with public,
+          non-sensitive pages, review actions before allowing them, and avoid private accounts or sensitive data.
+        </p>
+      </div>
+
+      <footer>
+        <a href="index.html">Back to documentation</a> ·
+        <a href="https://github.com/rpallavisharma/seleniummcpserver">GitHub repository</a>
+      </footer>
+    </main>
+  </body>
+</html>
