@@ -136,6 +136,20 @@ class SeleniumBrowser:
         with self._lock:
             return self._get_driver().page_source[:max_chars]
 
+    def accessibility_tree(self, interesting_only: bool = True) -> str:
+        with self._lock:
+            return self._get_driver().accessibility_snapshot(
+                interesting_only=interesting_only
+            ).to_text()
+
+    def element_accessibility_tree(
+        self, strategy: str, selector: str, interesting_only: bool = True
+    ) -> str:
+        with self._lock:
+            return self._find(strategy, selector).accessibility_snapshot(
+                interesting_only=interesting_only
+            ).to_text()
+
     def current_url(self) -> str:
         with self._lock:
             return self._get_driver().current_url
@@ -654,6 +668,26 @@ def get_page_text() -> str:
 def get_page_source(max_chars: int = 20000) -> str:
     """Return the current page HTML source, capped to max_chars."""
     return browser.page_source(max_chars)
+
+
+@mcp.tool()
+def get_accessibility_tree(interesting_only: bool = True) -> str:
+    """Return a DOM-computed accessibility snapshot of the current browsing context.
+
+    Set interesting_only to false to include all rendered elements.
+    """
+    return browser.accessibility_tree(interesting_only)
+
+
+@mcp.tool()
+def get_element_accessibility_tree(
+    strategy: LocatorStrategy, selector: str, interesting_only: bool = True
+) -> str:
+    """Return a DOM-computed accessibility snapshot of a matching element's subtree.
+
+    Set interesting_only to false to include all rendered elements.
+    """
+    return browser.element_accessibility_tree(strategy, selector, interesting_only)
 
 
 @mcp.tool()
