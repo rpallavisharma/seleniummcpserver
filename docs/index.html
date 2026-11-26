@@ -295,7 +295,6 @@
           <a href="#overview">Overview</a>
           <a href="#requirements">Requirements</a>
           <a href="#installation">Install and run</a>
-          <a href="claude-desktop.html">Claude Desktop setup</a>
           <a href="#configuration">Configuration</a>
           <a href="#tools">Tools</a>
           <a href="#blog">Blog</a>
@@ -328,10 +327,16 @@
           <p class="eyebrow">From the blog</p>
           <h2>Ideas for better browser automation.</h2>
           <p>Practical guides to the tools and concepts behind Selenium MCP Server.</p>
-          <article class="card">
-            <h3><a href="accessibility-snapshots.html">Give your AI agent a clearer view of the page</a></h3>
-            <p>Learn how Selenium's accessibility snapshots turn page structure into useful context for an MCP client.</p>
-          </article>
+          <div class="cards">
+            <article class="card">
+              <h3><a href="accessibility-snapshots.html">Give your AI agent a clearer view of the page</a></h3>
+              <p>Learn how Selenium's accessibility snapshots turn page structure into useful context for an MCP client.</p>
+            </article>
+            <article class="card" id="claude-desktop">
+              <h3><a href="claude-desktop.html">Use Selenium MCP Server with Claude Desktop on macOS</a></h3>
+              <p>Follow a step-by-step guide to install the server, configure Claude Desktop, and try browser tasks.</p>
+            </article>
+          </div>
         </section>
 
         <section id="requirements">
@@ -370,16 +375,6 @@ python -m selenium_mcp_server</code></pre>
             Configure your MCP client to launch <code>python -m selenium_mcp_server</code>
             from the repository directory.
           </p>
-        </section>
-
-        <section id="claude-desktop">
-          <h2>Claude Desktop setup</h2>
-          <p>
-            Follow the step-by-step macOS tutorial to install the server,
-            configure Claude Desktop, try browser tasks, and troubleshoot
-            common connection errors.
-          </p>
-          <p><a href="claude-desktop.html">Open the Claude Desktop tutorial</a></p>
         </section>
 
         <section id="configuration">
