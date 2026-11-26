@@ -51,6 +51,11 @@
       .article p, .article li { color: #465361; }
       .article p { margin: 0 0 16px; }
       li { margin: 8px 0; }
+      figure { margin: 28px 0; }
+      figure img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 10px; }
+      figcaption { margin-top: 8px; color: var(--muted); font-size: 13px; }
+      details { margin: 20px 0; }
+      summary { cursor: pointer; color: var(--blue); font-weight: 650; }
       .callout { margin: 28px 0; padding: 18px 20px; border: 1px solid #d5e6f4; border-radius: 10px; background: var(--blue-soft); }
       .callout strong { color: #164b75; }
       .callout p { margin: 4px 0 0; color: #35566f; }
@@ -83,6 +88,7 @@
           </p>
           <div class="tags" aria-label="Topics">
             <span class="tag">Accessibility</span>
+            <span class="tag">Server 1.0.1</span>
             <span class="tag">Selenium 4.54</span>
             <span class="tag">MCP tools</span>
           </div>
@@ -101,6 +107,14 @@
       </header>
 
       <article class="article">
+        <h2>What changed in release 1.0.1?</h2>
+        <p>
+          Selenium MCP Server <a href="https://github.com/rpallavisharma/seleniummcpserver/releases/tag/1.0.1">1.0.1</a>
+          updates Selenium to 4.54.0 and adds tools for accessibility snapshots
+          of a page or a selected element. Your MCP client can use the resulting
+          roles, names, and states to understand the page before choosing an action.
+        </p>
+
         <h2>From markup to meaning</h2>
         <p>
           A web page contains much more than the controls a person sees: nested
@@ -127,14 +141,143 @@
           <p>This is Selenium's DOM-computed snapshot, not the browser's native accessibility tree. The two can differ, and a snapshot alone is not a complete accessibility audit.</p>
         </div>
 
-        <h2>Try it with your MCP client</h2>
+        <h2>Set up Claude Desktop on macOS</h2>
         <p>
-          Install the pinned dependencies and connect the server using the
-          <a href="index.html#installation">setup guide</a>. After navigating to a
-          page, ask your client to inspect its accessibility tree. The client can
-          call:
+          Install Python 3.10 or later and your chosen browser. In Terminal, clone
+          the repository, check out the release, and install its dependencies:
+        </p>
+        <pre><code>git clone https://github.com/rpallavisharma/seleniummcpserver.git
+cd seleniummcpserver
+git checkout 1.0.1
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+pwd</code></pre>
+        <p>
+          Copy the path printed by <code>pwd</code>. In Claude Desktop, open
+          <strong>Settings → Developer → Edit Config</strong>. Add the following
+          <code>selenium</code> entry inside the existing <code>mcpServers</code>
+          object, replacing both paths with your repository path:
+        </p>
+        <pre><code>{
+  "mcpServers": {
+    "selenium": {
+      "command": "/YOUR/REPO/PATH/.venv/bin/python",
+      "args": ["-m", "selenium_mcp_server"],
+      "env": {
+        "PYTHONPATH": "/YOUR/REPO/PATH",
+        "SELENIUM_BROWSER": "chrome",
+        "SELENIUM_HEADLESS": "false"
+      }
+    }
+  }
+}</code></pre>
+        <p>
+          Save the configuration, fully quit Claude Desktop, and reopen it.
+          Chrome is the default; set <code>SELENIUM_BROWSER</code> to
+          <code>firefox</code>, <code>edge</code>, or <code>safari</code> to
+          use another installed browser. Safari requires macOS and automation
+          enabled in its Develop menu. Selenium Manager may need network access
+          to obtain a compatible driver on first use. See the
+          <a href="claude-desktop.html">complete setup guide</a> for troubleshooting.
+        </p>
+
+        <h2>Try it: inspect Selenium.dev</h2>
+        <p>Ask Claude:</p>
+        <div class="callout">
+          <strong>Open selenium.dev and show me its accessibility tree.</strong>
+        </div>
+        <p>
+          Claude can navigate to the site and call the page snapshot tool:
         </p>
         <pre><code>get_accessibility_tree(interesting_only=true)</code></pre>
+        <figure>
+          <img src="selenium-accessibility-example.png" alt="Claude Desktop showing the Selenium.dev accessibility tree after the prompt to open the site and show its accessibility tree." loading="lazy">
+          <figcaption>An example of the prompt and the resulting accessibility-tree summary in Claude Desktop.</figcaption>
+        </figure>
+        <p>
+          The following is the complete example shown in this post. It is an
+          abbreviated summary of a snapshot, not the complete raw tool output:
+          paragraph text and the syntax-highlighted code sample are collapsed.
+          Page content and snapshots can change over time.
+        </p>
+        <details>
+          <summary>Show the Selenium.dev example tree</summary>
+          <pre><code>document "Selenium"
+├─ banner
+│  └─ navigation
+│     ├─ link "Selenium logo green"
+│     │  └─ graphics-document "Selenium logo green"
+│     ├─ list
+│     │  ├─ button "About"
+│     │  ├─ link "Downloads"
+│     │  ├─ link "Documentation"
+│     │  ├─ link "Projects"
+│     │  ├─ link "Support"
+│     │  ├─ link "Blog"
+│     │  ├─ button "Code example language: Java"
+│     │  └─ button "English"
+│     └─ button "Search (Command+K)"
+├─ main
+│  ├─ heading "Automate any browser, from any language." [level=1]
+│  ├─ paragraph (Selenium intro) + link "W3C WebDriver standard"
+│  ├─ link "Get started"
+│  ├─ link "Using AI agents"
+│  ├─ paragraph "Works out of the box: …"
+│  ├─ heading "Install Selenium and run your first script" [level=2]
+│  ├─ paragraph
+│  ├─ tablist "Code example language"
+│  │  ├─ tab "Java" [selected]
+│  │  ├─ tab "Python"
+│  │  ├─ tab "CSharp"
+│  │  ├─ tab "Ruby"
+│  │  ├─ tab "JavaScript"
+│  │  └─ tab "Kotlin"
+│  ├─ tabpanel "Java"
+│  │  ├─ paragraph + code "org.seleniumhq.selenium:selenium-java"
+│  │  ├─ code (≈60 single-token text nodes: package, dev, ., selenium, …)
+│  │  └─ link "View on GitHub"
+│  ├─ paragraph + link "Getting Started guide"
+│  ├─ heading "Pick your tool" [level=2]
+│  │  ├─ graphics-document "Selenium WebDriver"
+│  │  ├─ heading "Selenium WebDriver" [level=4]
+│  │  ├─ paragraph "Use this when …"
+│  │  ├─ link "Read more"
+│  │  ├─ graphics-document "Selenium Grid"
+│  │  ├─ heading "Selenium Grid" [level=4]
+│  │  ├─ paragraph "Use this when …"
+│  │  └─ link "Read more"
+│  ├─ heading "Used by projects and teams including" [level=2]
+│  │  ├─ link "34,616 GitHub stars"
+│  │  └─ list: Wikimedia Foundation, OpenStack, Jenkins, Drupal,
+│  │          Moodle, Mozilla, Progress, trivago (each a link)
+│  ├─ paragraph + link "Add your logo"
+│  ├─ paragraph (logo attributions) + links "Jenkins project", "CC BY-SA 3.0"
+│  ├─ heading "Development Partners" [level=2]
+│  │  └─ links: BrowserStack, TestMu AI (formerly LambdaTest)
+│  ├─ heading "Selenium Level Sponsors" [level=2]
+│  │  └─ links: Bright Data, Applitools, Thordata
+│  ├─ heading "News" [level=2]
+│  │  ├─ heading "Selenium 4.54 Released!" [level=4] (Nov 23, 2026) + link "Read More"
+│  │  ├─ heading "Selenium 4.53 Released!" [level=4] (Nov 17, 2026) + link "Read More"
+│  │  ├─ heading "Selenium 4.52 Released!" [level=4] (Oct 29, 2026) + link "Read More"
+│  │  └─ link "More news"
+│  ├─ heading "Support the Selenium Project" [level=2] + link "Learn more"
+│  └─ heading "Donate to Selenium" [level=2]
+│     └─ heading "through Open Collective" [level=3] → link "Open Collective"
+└─ contentinfo
+   ├─ list: Linkedin, X, Community YouTube, Mastodon, BlueSky,
+   │        User mailing list, SeleniumConf YouTube
+   ├─ list: Software Freedom Conservancy, GitHub, Slack, IRC,
+   │        Developer mailing list
+   ├─ link "Deploys by Netlify"
+   └─ text "© 2026 Software Freedom Conservancy All Rights Reserved"
+      └─ link "About Selenium"</code></pre>
+        </details>
+        <p>
+          To see the complete, current output, ask Claude to return the raw tool
+          result without summarizing it. The tool's text format uses indentation
+          and dashes rather than the branch characters shown in this summary.
+        </p>
         <p>
           By default, unnamed generic and presentational elements are pruned.
           Set <code>interesting_only</code> to <code>false</code> to include all
