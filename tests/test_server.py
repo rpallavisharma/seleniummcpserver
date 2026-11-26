@@ -1,8 +1,11 @@
 import unittest
 from unittest.mock import Mock, patch
 
+from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.common.by import By
+from selenium.webdriver.remote.accessibility_snapshot import AccessibilityNode
 
+from selenium_mcp_server import server
 from selenium_mcp_server.server import SeleniumBrowser
 
 
@@ -106,6 +109,60 @@ class SeleniumBrowserTests(unittest.TestCase):
         self.assertEqual(self.browser.page_source(7), "<html>c")
         with self.assertRaisesRegex(ValueError, "max_chars"):
             self.browser.page_source(0)
+
+    @patch("selenium_mcp_server.server.webdriver.Chrome")
+    def test_accessibility_tree_renders_page_snapshot(self, chrome):
+        chrome.return_value = self.driver
+        self.driver.accessibility_snapshot.return_value = AccessibilityNode(
+            role="document",
+            name="Example",
+            children=[AccessibilityNode(role="button", name="Continue")],
+        )
+
+        self.assertEqual(
+            self.browser.accessibility_tree(False),
+            '- document "Example"\n  - button "Continue"',
+        )
+        self.driver.accessibility_snapshot.assert_called_once_with(interesting_only=False)
+
+    @patch("selenium_mcp_server.server.webdriver.Chrome")
+    def test_element_accessibility_tree_uses_locator(self, chrome):
+        chrome.return_value = self.driver
+        element = self.driver.find_element.return_value
+        element.accessibility_snapshot.return_value = AccessibilityNode(
+            role="button", name="Continue"
+        )
+
+        self.assertEqual(
+            self.browser.element_accessibility_tree("css", "button"),
+            '- button "Continue"',
+        )
+        self.driver.find_element.assert_called_once_with(By.CSS_SELECTOR, "button")
+        element.accessibility_snapshot.assert_called_once_with(interesting_only=True)
+        with self.assertRaisesRegex(ValueError, "Unsupported locator strategy"):
+            self.browser.element_accessibility_tree("invalid", "button")
+
+    @patch("selenium_mcp_server.server.webdriver.Chrome")
+    def test_accessibility_snapshot_errors_propagate(self, chrome):
+        chrome.return_value = self.driver
+        self.driver.find_element.return_value.accessibility_snapshot.side_effect = (
+            StaleElementReferenceException("stale root")
+        )
+
+        with self.assertRaises(StaleElementReferenceException):
+            self.browser.element_accessibility_tree("id", "main")
+
+    @patch("selenium_mcp_server.server.browser")
+    def test_accessibility_tools_delegate_to_browser(self, browser):
+        browser.accessibility_tree.return_value = "page"
+        browser.element_accessibility_tree.return_value = "element"
+
+        self.assertEqual(server.get_accessibility_tree(), "page")
+        self.assertEqual(
+            server.get_element_accessibility_tree("id", "main", False), "element"
+        )
+        browser.accessibility_tree.assert_called_once_with(True)
+        browser.element_accessibility_tree.assert_called_once_with("id", "main", False)
 
     @patch("selenium_mcp_server.server.webdriver.Chrome")
     def test_find_elements_returns_element_state(self, chrome):

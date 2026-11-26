@@ -45,6 +45,8 @@ Navigation and page inspection:
 - `get_current_url()`, `get_page_title()`, `get_page_text()`,
   `get_page_source(max_chars=20000)`: inspect the current page. Source output is
   capped at 100,000 characters.
+- `get_accessibility_tree(interesting_only=true)`: return a readable accessibility
+  snapshot of the current browsing context and reachable child frames.
 - `take_screenshot()`: return a PNG screenshot.
 
 Elements and interactions:
@@ -59,6 +61,8 @@ Elements and interactions:
   left/right of, or near an anchor, including straight-line variants.
 - `get_element_attribute(strategy, selector, attribute)` and
   `get_element_state(strategy, selector)`.
+- `get_element_accessibility_tree(strategy, selector, interesting_only=true)`:
+  return an accessibility snapshot of the first matching element's subtree.
 - `get_element_property(strategy, selector, name)`,
   `get_element_css_value(strategy, selector, property_name)`,
   `get_element_rect(strategy, selector)`, and
@@ -106,6 +110,12 @@ Browser context and controls:
 
 Supported locator strategies are `id`, `name`, `css`, `xpath`, `tag`, `class`,
 `link_text`, and `partial_link_text`.
+
+Accessibility snapshots are computed by Selenium from the DOM, not read from the
+browser's native accessibility tree. Set `interesting_only=false` to include all
+rendered elements. The text format omits element references, descriptions, and
+URLs; use the existing locator-based tools for interactions. Snapshots can include
+sensitive page text and form values.
 
 ## Test
 

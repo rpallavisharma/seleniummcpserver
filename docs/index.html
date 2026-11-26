@@ -298,6 +298,7 @@
           <a href="claude-desktop.html">Claude Desktop setup</a>
           <a href="#configuration">Configuration</a>
           <a href="#tools">Tools</a>
+          <a href="#blog">Blog</a>
           <a href="#testing">Testing</a>
         </nav>
       </aside>
@@ -322,6 +323,16 @@
             <p>The server launches the selected browser the first time a browser tool is used.</p>
           </div>
         </header>
+
+        <section id="blog">
+          <p class="eyebrow">From the blog</p>
+          <h2>Ideas for better browser automation.</h2>
+          <p>Practical guides to the tools and concepts behind Selenium MCP Server.</p>
+          <article class="card">
+            <h3><a href="accessibility-snapshots.html">Give your AI agent a clearer view of the page</a></h3>
+            <p>Learn how Selenium's accessibility snapshots turn page structure into useful context for an MCP client.</p>
+          </article>
+        </section>
 
         <section id="requirements">
           <h2>Requirements</h2>
@@ -403,8 +414,10 @@ python -m selenium_mcp_server</code></pre>
               <li><code>get_page_title()</code><span>Read the page title.</span></li>
               <li><code>get_page_text()</code><span>Read visible page text.</span></li>
               <li><code>get_page_source(max_chars=20000)</code><span>Read page source, capped at 100,000 characters.</span></li>
+              <li><code>get_accessibility_tree(interesting_only=true)</code><span>Read an accessibility snapshot of the current context and reachable child frames.</span></li>
               <li><code>take_screenshot()</code><span>Capture a PNG screenshot.</span></li>
             </ul>
+            <p class="note">Selenium computes snapshots from the DOM, not the browser's native accessibility tree. Set <code>interesting_only=false</code> to include all rendered elements. Text output omits element references, descriptions, and URLs and can include sensitive page text and form values.</p>
           </article>
 
           <article class="tool-group">
@@ -413,6 +426,7 @@ python -m selenium_mcp_server</code></pre>
               <li><code>find_elements(strategy, selector, limit=50)</code><span>List matching elements and their state (limit 1–200).</span></li>
               <li><code>get_element_attribute(strategy, selector, attribute)</code><span>Read an element attribute.</span></li>
               <li><code>get_element_state(strategy, selector)</code><span>Inspect displayed, enabled, and selected state.</span></li>
+              <li><code>get_element_accessibility_tree(strategy, selector, interesting_only=true)</code><span>Read an accessibility snapshot of the first matching element's subtree.</span></li>
               <li><code>get_element_property(strategy, selector, name)</code><span>Read a DOM property.</span></li>
               <li><code>get_element_css_value(strategy, selector, property_name)</code><span>Read a computed CSS value.</span></li>
               <li><code>get_element_rect(strategy, selector)</code><span>Read an element’s bounding rectangle.</span></li>
